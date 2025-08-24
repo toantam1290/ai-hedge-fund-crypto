@@ -7,6 +7,7 @@ from colorama import Fore, Style
 from utils import Interval, QUANTITY_DECIMALS, format_backtest_row, print_backtest_results
 from agent import Agent
 from utils.binance_data_provider import BinanceDataProvider
+from utils.telegram_notifier import TelegramNotifier
 import matplotlib.pyplot as plt
 
 
@@ -57,6 +58,7 @@ class Backtester:
         self.show_reasoning = show_reasoning
         self.binance_data_provider = BinanceDataProvider()
         self.klines: Dict[str, pd.DataFrame]() = {}
+        self.notifier = TelegramNotifier()
 
         # Initialize portfolio with support for long/short positions
         self.portfolio_values = []
@@ -352,6 +354,21 @@ class Backtester:
 
                 executed_quantity = self.execute_trade(ticker, action, quantity, current_prices[ticker])
                 executed_trades[ticker] = executed_quantity
+                # Notify only when a non-hold trade is executed with positive quantity
+                if self.notifier.enabled and action in ("buy", "sell", "short", "cover") and executed_quantity > 0:
+                    pos = self.portfolio["positions"][ticker]
+                    net_shares = pos["long"] - pos["short"]
+                    position_value = net_shares * current_prices[ticker]
+                    self.notifier.notify_trade(
+                        ts=current_time,
+                        ticker=ticker,
+                        action=action,
+                        quantity=executed_quantity,
+                        price=current_prices[ticker],
+                        net_shares=net_shares,
+                        position_value=position_value,
+                        cash_after=self.portfolio["cash"],
+                    )
 
             # ---------------------------------------------------------------
             # 2) Now that trades have executed trades, recalculate the final
@@ -373,6 +390,23 @@ class Backtester:
                 {"Date": current_time, "Portfolio Value": total_value, "Long Exposure": long_exposure,
                  "Short Exposure": short_exposure, "Gross Exposure": gross_exposure, "Net Exposure": net_exposure,
                  "Long/Short Ratio": long_short_ratio})
+
+            # Send periodic summary notification (e.g., every step or throttle externally if needed)
+            # Throttle summary by config notify_every_steps if available and notify enabled
+            from utils import settings as _global_settings
+            if getattr(_global_settings, "notify_enabled", True):
+                notify_every = getattr(_global_settings, "notify_every_steps", 1) or 1
+                if self.notifier.enabled and (len(self.portfolio_values) % notify_every == 0):
+                    self.notifier.notify_summary(
+                        ts=current_time,
+                        total_value=total_value,
+                        cash=self.portfolio["cash"],
+                        long_exposure=long_exposure,
+                        short_exposure=short_exposure,
+                        gross_exposure=gross_exposure,
+                        net_exposure=net_exposure,
+                        long_short_ratio=long_short_ratio,
+                    )
 
             # ---------------------------------------------------------------
             # 3) Build the table rows to display

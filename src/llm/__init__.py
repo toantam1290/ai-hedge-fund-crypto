@@ -29,7 +29,7 @@ def get_llm(provider: str, model: str, base_url: Optional[str] = None):
             max_retries=max_retries,
         )
     elif provider == "groq":
-        base_url = base_url or "https://api.groq.com/v1"
+        base_url = base_url or "https://api.groq.com"
         return ChatGroq(
             api_key=os.getenv("GROQ_API_KEY"),
             base_url=base_url,

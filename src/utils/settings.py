@@ -32,6 +32,14 @@ class Settings(BaseSettings):
     show_agent_graph: bool = True
     signals: SignalSettings
     model: ModelSettings
+    # live options
+    live_poll_seconds: Optional[int] = 60  # default 60s when live; 0/None -> run once
+    notify_every_steps: Optional[int] = 1  # backtest notifications frequency
+    # notifications
+    notify_enabled: bool = True
+    notify_skip_hold: bool = True
+    notify_live_trade_cooldown_seconds: int = 300  # send same trade per ticker at most every N seconds
+    notify_live_summary_seconds: int = 0  # 0 disables live summary notifications
 
     @model_validator(mode='after')
     def check_primary_interval_in_intervals(self):

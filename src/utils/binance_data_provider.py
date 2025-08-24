@@ -26,7 +26,7 @@ class BinanceDataProvider:
             api_key: Binance API key (optional for public data)
             api_secret: Binance API secret (optional for public data)
         """
-        self.client = Client(api_key=api_key, api_secret=api_secret)
+        self.client = Client(api_key=api_key, api_secret=api_secret, ping=False)
 
         # Create cache directory if it doesn't exist
         self.cache_dir = Path("./cache")
@@ -116,6 +116,16 @@ class BinanceDataProvider:
 
         except Exception as e:
             print(f"Error fetching historical data for {formatted_symbol} {timeframe}: {e}")
+            # Try to load sample data if network fails
+            sample_file = self.cache_dir / f"{formatted_symbol}_{timeframe}_sample.csv"
+            if sample_file.exists():
+                print(f"Loading sample data for {formatted_symbol} {timeframe}")
+                df = pd.read_csv(sample_file)
+                # Convert timestamp column to datetime if exists
+                if 'timestamp' in df.columns:
+                    df['open_time'] = pd.to_datetime(df['timestamp'])
+                    df['close_time'] = pd.to_datetime(df['timestamp'])
+                return df
             return pd.DataFrame()
 
     def get_multiple_timeframes_with_end_time(
@@ -220,6 +230,16 @@ class BinanceDataProvider:
 
         except Exception as e:
             print(f"Error fetching latest data for {formatted_symbol} {timeframe}: {e}")
+            # Try to load sample data if network fails
+            sample_file = self.cache_dir / f"{formatted_symbol}_{timeframe}_sample.csv"
+            if sample_file.exists():
+                print(f"Loading sample data for {formatted_symbol} {timeframe}")
+                df = pd.read_csv(sample_file)
+                # Convert timestamp column to datetime if exists
+                if 'timestamp' in df.columns:
+                    df['open_time'] = pd.to_datetime(df['timestamp'])
+                    df['close_time'] = pd.to_datetime(df['timestamp'])
+                return df
             return pd.DataFrame()
 
     def get_latest_multi_timeframe_data(
